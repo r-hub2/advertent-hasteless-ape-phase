@@ -31,7 +31,7 @@
 #' @examples
 #' td <- trimData(data = df, start.date = "19 Dec 20", start.time = "21:00",
 #' n.days = 3, bin = 1, t.cycle = 24)
-#' cwt.dat <- phaseCWT(input = td, low.per = 1, high.per = 3)
+#' cwt.dat <- phaseCWT(input = td, low.per = 1, high.per = 3, boot = F)
 
 phaseCWT <- function (input, data = "Activity", out.bin = 15, t.cycle = 24, sleep.def = 5, low.per = 1, high.per = 35, rm.channels = c(), make.pval = FALSE, n.sim = 1000, method = "shuffle", boot = TRUE, boot.rep = 1000) {
   
