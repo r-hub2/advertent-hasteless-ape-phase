@@ -12,7 +12,7 @@
 #' @param low.per Choose the lowest period (in hours) for analysis. This defaults to 1.
 #' @param high.per Choose the highest period (in hours) for analysis. This defaults to 35.
 #' @param edge.rm A logical (TRUE or FALSE). TRUE will plot the scalogram with the edge effects removed. FALSE will plot the scalogram with the regions of the edge effect still retained in the plot. This defaults to FALSE.
-#' @param make.p.val A logical (TRUE or FALSE). TRUE will generate p-values for the significance of detected periodicities. FALSE will not. Note that generating p-values significantly increases computation time. Defaults to FALSE.
+#' @param make.pval A logical (TRUE or FALSE). TRUE will generate p-values for the significance of detected periodicities. FALSE will not. Note that generating p-values significantly increases computation time. Defaults to FALSE.
 #' @param n.sim If TRUE, the number of simulations based on which p-values will be computed. Defaults to 1000.
 #' @param method The method used for generating surrogate time-series against which p-values are generated. Also see help(analyze.wavelet). Available choices are "white.noise": white noise, "shuffle": shuffling the given time-series, "Fourier.rand": time-series with a similar spectrum, "AR": AR(p), "ARIMA": ARIMA(p,0,q). Defaults to "shuffle".
 #' @param z.max The maximum color on the scalogram. Defaults to 0.5.
@@ -23,14 +23,14 @@
 #' 
 #' @return A \code{plotly} \code{htmlwidget}.
 #'
-#' @export cwtScalogram
+#' @export phaseCWTscalogram
 #'
 #' @examples
 #' td <- trimData(data = df, start.date = "19 Dec 20", start.time = "21:00",
-#' n.days = 1, bin = 1, t.cycle = 24)
-#' scalogram <- cwtScalogram(data = td[,1:15])
+#' n.days = 7, bin = 1, t.cycle = 24)
+#' scalogram <- phaseCWTscalogram(input = td, n.days = 3, low.per = 1, high.per = 3)
 
-cwtScalogram <- function (input, data = "Activity", out.bin = 15, t.cycle = 24, n.days, sleep.def = 5, low.per = 1, high.per = 35, edge.rm = FALSE, make.pval = FALSE, n.sim = 1000, method = "shuffle", z.max = 0.5) {
+phaseCWTscalogram <- function (input, data = "Activity", out.bin = 15, t.cycle = 24, n.days, sleep.def = 5, low.per = 1, high.per = 35, edge.rm = FALSE, make.pval = FALSE, n.sim = 1000, method = "shuffle", z.max = 0.5) {
   
   requireNamespace("plotly")
   requireNamespace("WaveletComp")
@@ -49,22 +49,38 @@ cwtScalogram <- function (input, data = "Activity", out.bin = 15, t.cycle = 24, 
     )
     
     if (data == "Activity") {
-      df <- binData(data = input, input.bin = 1, output.bin = out.bin, t.cycle = 24)
+      df <- binData(data = input, input.bin = 1, output.bin = out.bin, t.cycle = t.cycle)
     } else if (data == "Sleep") {
-      df <- sleepData(data = input, sleep.def = sleep.def, bin = out.bin, t.cycle = 24)
+      df <- sleepData(data = input, sleep.def = sleep.def, bin = out.bin, t.cycle = t.cycle)
     }
     
     cwt.rds <- list()
-    for (i in 1:(length(df[1,])-1)) {
-      if (sum(df[,i+1]) == (out.bin * length(df[,1])) || sum(df[,i+1]) == 0) {
-        cwt.rds[[i]] <- NA # check if fly-i is dead, and if it is then assign a value of NA to the CWT for fly-i
-      } else {
-        cwt.rds[[i]] <- WaveletComp::analyze.wavelet(my.data = df, my.series = paste("I", i, sep = ""),
-                                                     loess.span = 0, dt = 1, lowerPeriod = low.per * s.per.hr,
-                                                     upperPeriod = high.per * s.per.hr, dj = 1/100,
-                                                     make.pval = make.pval, verbose = F, n.sim = n.sim, method = method)
-      } # if fly-i is alive, compute the CWT and store value. Note that make.pval = F; this means that shuffling of time-series will not happen
-    } # for loop to compute CWT for each fly
+    
+    if (isTRUE(make.pval)) {
+      for (i in 1:(length(df[1,])-1)) {
+        if (sum(df[,i+1]) == (out.bin * length(df[,1])) || sum(df[,i+1]) == 0) {
+          cwt.rds[[i]] <- NA # check if fly-i is dead, and if it is then assign a value of NA to the CWT for fly-i
+        } else {
+          cwt.rds[[i]] <- WaveletComp::analyze.wavelet(my.data = df, my.series = paste("I", i, sep = ""),
+                                                       loess.span = 0, dt = 1, lowerPeriod = low.per * s.per.hr,
+                                                       upperPeriod = high.per * s.per.hr, dj = 1/100,
+                                                       make.pval = T, verbose = F, n.sim = n.sim, method = method)
+        } # if fly-i is alive, compute the CWT and store value.
+      } # for loop to compute CWT for each fly
+    } else {
+      for (i in 1:(length(df[1,])-1)) {
+        if (sum(df[,i+1]) == (out.bin * length(df[,1])) || sum(df[,i+1]) == 0) {
+          cwt.rds[[i]] <- NA # check if fly-i is dead, and if it is then assign a value of NA to the CWT for fly-i
+        } else {
+          cwt.rds[[i]] <- WaveletComp::analyze.wavelet(my.data = df, my.series = paste("I", i, sep = ""),
+                                                       loess.span = 0, dt = 1, lowerPeriod = low.per * s.per.hr,
+                                                       upperPeriod = high.per * s.per.hr, dj = 1/100,
+                                                       make.pval = F, verbose = F, n.sim = n.sim, method = method)
+        } # if fly-i is alive, compute the CWT and store value.
+      } # for loop to compute CWT for each fly
+    }
+    
+    names(cwt.rds) <- paste("Ch-", 1:32, sep = "")
     
     cwt.no.na <- cwt.rds[which(!is.na(cwt.rds))]
     
